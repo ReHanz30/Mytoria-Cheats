@@ -1,18 +1,14 @@
 -- ============================================================
--- SUSANO SCRIPT V3 - PART 2/2: UI MENU UTAMA LENGKAP (REV. TIME)
--- CATATAN: Part 1 harus dimuat terlebih dahulu!
--- ============================================================
--- ============================================================
--- SUSANO SCRIPT V3 - PART 1/2: LOGIN & LOGIC (REV. TIME)
+-- MYTORIA SCRIPT V4 - UI & LOGIC
 -- ============================================================
 
--- ====== CONFIG ======
-_G.TeamCheck     = true
-_G.ESPEnabled    = true
+-- ====== GLOBAL CONFIGURATION ======
+_G.ESPEnabled = true
 _G.AimbotEnabled = true
-_G.ShowLine      = true
-_G.ShowHPBar     = true
-_G.FOVRadius     = 120
+_G.TeamCheck = true
+_G.ShowLine = true
+_G.ShowHPBar = true
+_G.FOVRadius = 120
 
 -- ====== SERVICES ======
 local HttpService = game:GetService("HttpService")
@@ -23,94 +19,91 @@ local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- ====== FIREBASE CONFIG & DATA STORAGE ======
+-- ====== FIREBASE & DATA STORAGE ======
 local FIREBASE_URL = "https://mod-mytoria-default-rtdb.asia-southeast1.firebasedatabase.app/keys.json"
-local keyExpirySeconds = 0 -- Sisa waktu kadaluarsa dalam detik
+local keyExpirySeconds = 0
 
--- ====== UI COLOR CONSTANTS ======
-local BLUE_ACCENT = Color3.fromRGB(0, 110, 255)
-local BG_DARK = Color3.fromRGB(2, 6, 13)
-local BG_HEADER = Color3.fromRGB(15, 25, 40)
+-- ====== UI CONSTANTS ======
+local ACCENT_COLOR = Color3.fromRGB(0, 150, 255)
+local BG_DARK = Color3.fromRGB(18, 18, 22)
+local BG_HEADER = Color3.fromRGB(25, 25, 30)
 local TEXT_COLOR = Color3.fromRGB(255, 255, 255)
-local COLOR_SUCCESS = Color3.fromRGB(0, 255, 100)
-local COLOR_EXPIRED = Color3.fromRGB(255, 165, 0)
-local COLOR_ERROR = Color3.fromRGB(255, 50, 50)
+local COLOR_SUCCESS = Color3.fromRGB(0, 255, 127)
+local COLOR_EXPIRED = Color3.fromRGB(255, 180, 0)
+local COLOR_ERROR = Color3.fromRGB(255, 70, 70)
 
--- ====== UTILITY TIME CONVERSION ======
--- Mengonversi total detik ke format Hari:Jam:Menit:Detik (D:H:M:S)
-local function secondsToDHMS(totalSeconds)
-    if totalSeconds <= 0 then return "00D:00H:00M:00S" end
-    local seconds = math.floor(totalSeconds)
-    
-    local days = math.floor(seconds / 86400)
-    seconds = seconds % 86400
-    
-    local hours = math.floor(seconds / 3600)
-    seconds = seconds % 3600
-    
-    local minutes = math.floor(seconds / 60)
-    seconds = seconds % 60
-    
-    local function format(n) return string.format("%02i", n) end
-    
-    return format(days) .. "D:" .. format(hours) .. "H:" .. format(minutes) .. "M:" .. format(seconds) .. "S"
+-- ====== UTILITY FUNCTIONS ======
+local function secondsToDHMS(s)
+    if s <= 0 then return "00D:00H:00M:00S" end
+    local days = math.floor(s / 86400)
+    s = s % 86400
+    local hours = math.floor(s / 3600)
+    s = s % 3600
+    local minutes = math.floor(s / 60)
+    s = s % 60
+    return string.format("%02iD:%02iH:%02iM:%02iS", days, hours, minutes, s)
 end
 
--- ====== GUI LOGIN (REVISED) ======
+local function clamp(v, a, b) return math.max(a, math.min(b, v)) end
+
+-- ============================================================
+-- LOGIN UI & LOGIC
+-- ============================================================
+
 local function createLoginGui()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "LoginGui"
     ScreenGui.Parent = game:GetService("CoreGui")
+    ScreenGui.ResetOnSpawn = false
 
-    local Frame = Instance.new("Frame", ScreenGui)
-    Frame.Size = UDim2.new(0, 300, 0, 180)
-    Frame.Position = UDim2.new(0.5, -150, 0.5, -90)
+    local Overlay = Instance.new("Frame", ScreenGui)
+    Overlay.Size = UDim2.new(1, 0, 1, 0)
+    Overlay.BackgroundColor3 = Color3.new(0, 0, 0)
+    Overlay.BackgroundTransparency = 0.5
+
+    local Frame = Instance.new("Frame", Overlay)
+    Frame.Size = UDim2.new(0, 320, 0, 200)
+    Frame.AnchorPoint = Vector2.new(0.5, 0.5)
+    Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
     Frame.BackgroundColor3 = BG_DARK
     Frame.BorderSizePixel = 0
-    
-    local UICorner = Instance.new("UICorner", Frame)
-    UICorner.CornerRadius = UDim.new(0, 8)
+    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
 
-    local UIGradient = Instance.new("UIGradient", Frame)
-    UIGradient.Color = ColorSequence.new(Color3.fromRGB(20, 20, 30), Color3.fromRGB(10, 10, 20))
-    UIGradient.Rotation = 90
-    
     local Title = Instance.new("TextLabel", Frame)
-    Title.Size = UDim2.new(1,0,0,35)
+    Title.Size = UDim2.new(1, 0, 0, 40)
     Title.BackgroundTransparency = 1
-    Title.Text = "SUSANO ACCESS"
-    Title.TextColor3 = BLUE_ACCENT
+    Title.Text = "MYTORIA"
+    Title.TextColor3 = ACCENT_COLOR
     Title.Font = Enum.Font.SourceSansBold
-    Title.TextSize = 22
-    Title.Position = UDim2.new(0, 0, 0, 10)
+    Title.TextSize = 26
+    Title.Position = UDim2.new(0, 0, 0, 15)
 
     local TextBox = Instance.new("TextBox", Frame)
-    TextBox.Size = UDim2.new(1, -40, 0, 35)
-    TextBox.Position = UDim2.new(0, 20, 0, 55)
-    TextBox.PlaceholderText = "Masukkan KEY..."
-    TextBox.Text = ""
+    TextBox.Size = UDim2.new(1, -50, 0, 40)
+    TextBox.Position = UDim2.new(0.5, -((320 - 50) / 2), 0, 65)
+    TextBox.PlaceholderText = "Enter Your Key"
     TextBox.ClearTextOnFocus = false
     TextBox.Font = Enum.Font.Code
-    TextBox.TextSize = 14
-    TextBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    TextBox.TextSize = 16
+    TextBox.BackgroundColor3 = BG_HEADER
     TextBox.TextColor3 = TEXT_COLOR
-    
+    TextBox.BorderSizePixel = 0
     Instance.new("UICorner", TextBox).CornerRadius = UDim.new(0, 5)
 
     local Submit = Instance.new("TextButton", Frame)
-    Submit.Size = UDim2.new(1, -40, 0, 40)
-    Submit.Position = UDim2.new(0, 20, 0, 100)
+    Submit.Size = UDim2.new(1, -50, 0, 45)
+    Submit.Position = UDim2.new(0.5, -((320 - 50) / 2), 0, 115)
     Submit.Text = "LOGIN"
-    Submit.BackgroundColor3 = BLUE_ACCENT
-    Submit.TextColor3 = TEXT_COLOR
+    Submit.BackgroundColor3 = ACCENT_COLOR
+    Submit.TextColor3 = Color3.new(1, 1, 1)
     Submit.Font = Enum.Font.SourceSansBold
     Submit.TextSize = 18
-    
+    Submit.BorderSizePixel = 0
     Instance.new("UICorner", Submit).CornerRadius = UDim.new(0, 5)
 
     local Status = Instance.new("TextLabel", Frame)
     Status.Size = UDim2.new(1, -40, 0, 20)
-    Status.Position = UDim2.new(0, 20, 0, 150)
+    Status.Position = UDim2.new(0.5, -((320 - 40) / 2), 0, 170)
     Status.BackgroundTransparency = 1
     Status.Text = ""
     Status.TextColor3 = COLOR_ERROR
@@ -120,112 +113,76 @@ local function createLoginGui()
     return ScreenGui, TextBox, Submit, Status
 end
 
--- ====== CEK KEY KE FIREBASE (DENGAN STATUS) ======
 local function validateKey(inputKey, statusLabel)
-    local succ, res = pcall(function()
-        return game:HttpGet(FIREBASE_URL)
-    end)
+    local succ, res = pcall(function() return game:HttpGet(FIREBASE_URL) end)
     if not succ then
         statusLabel.Text = "Connection Error"
         statusLabel.TextColor3 = COLOR_ERROR
-        return false, "Connection Error"
+        return false
     end
 
     local data = HttpService:JSONDecode(res)
     local currentTime = os.time()
-    local keyFound = false
-
+    
     for _, entry in pairs(data) do
         if entry.key == inputKey then
-            keyFound = true
-            local status = entry.status
-            local expiry = entry.expiry or "2099-12-31" 
-
-            local year, month, day = expiry:match("(%d%d%d%d)-(%d%d)-(%d%d)")
-            local expiryTime = 0
-            
-            if year and month and day then
-                -- Atur waktu kadaluarsa ke akhir hari yang ditentukan (23:59:59)
-                expiryTime = os.time({year=tonumber(year), month=tonumber(month), day=tonumber(day), hour=23, min=59, sec=59})
-            else
-                 -- Key default untuk menghindari error jika format salah/tidak ada
-                expiryTime = os.time({year=2099, month=12, day=31, hour=23, min=59, sec=59}) 
+            local expiryTime = os.time({year=2099, month=12, day=31, hour=23, min=59, sec=59})
+            if entry.expiry and entry.expiry:match("(%d%d%d%d)-(%d%d)-(%d%d)") then
+                local y, m, d = entry.expiry:match("(%d%d%d%d)-(%d%d)-(%d%d)")
+                expiryTime = os.time({year=tonumber(y), month=tonumber(m), day=tonumber(d), hour=23, min=59, sec=59})
             end
-            
-            local timeDifference = expiryTime - currentTime
-            keyExpirySeconds = timeDifference
 
-            if timeDifference <= 0 then
+            keyExpirySeconds = expiryTime - currentTime
+            if keyExpirySeconds <= 0 then
                 statusLabel.Text = "Key Expired"
                 statusLabel.TextColor3 = COLOR_EXPIRED
-                return false, "Key Expired"
+                return false
             end
             
-            if status ~= "active" then
-                statusLabel.Text = "Key Invalid/Inactive"
+            if entry.status ~= "active" then
+                statusLabel.Text = "Key Invalid or Inactive"
                 statusLabel.TextColor3 = COLOR_ERROR
-                return false, "Key Invalid/Inactive"
+                return false
             end
 
-            statusLabel.Text = "Login Success/Valid"
+            statusLabel.Text = "Login Success"
             statusLabel.TextColor3 = COLOR_SUCCESS
-            return true, "Login Success/Valid"
+            return true
         end
     end
     
-    if not keyFound then
-        statusLabel.Text = "Key Invalid/Not Found"
-        statusLabel.TextColor3 = COLOR_ERROR
-        return false, "Key Invalid/Not Found"
-    end
-    
-    return false, "Unknown Error"
+    statusLabel.Text = "Key Not Found"
+    statusLabel.TextColor3 = COLOR_ERROR
+    return false
 end
 
 -- ============================================================
--- =============== SCRIPT ESP/AIM V2 =====================
+-- CORE AIMBOT & ESP LOGIC
 -- ============================================================
 
--- ===== DRAWING STORAGE =====
 local ESP = {}
-
--- ===== FOV DRAWING (Harus dibuat sebelum loop) =====
 local FOV = Drawing.new("Circle")
 FOV.Thickness = 1
 FOV.NumSides = 100
 FOV.Radius = _G.FOVRadius
 FOV.Filled = false
-FOV.Color = Color3.fromRGB(255,0,0)
+FOV.Color = Color3.fromRGB(255, 0, 0)
 FOV.Visible = true
-FOV.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-
--- ===== UTILS (lanjutan) =====
-local function clamp(v,a,b) return math.max(a, math.min(b, v)) end
-
-local function safeRaycast(origin, dir, blacklist)
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Blacklist
-    params.FilterDescendantsInstances = blacklist or {}
-    local ok, res = pcall(function() return workspace:Raycast(origin, dir, params) end)
-    if not ok then return nil end
-    return res
-end
+FOV.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
 local function IsVisible(part)
     if not part or not part.Parent then return false end
     local origin = Camera.CFrame.Position
     local dir = (part.Position - origin)
-    if dir.Magnitude <= 0.1 then return true end
-    local blacklist = {}
-    if LocalPlayer and LocalPlayer.Character then
-        table.insert(blacklist, LocalPlayer.Character)
-    end
-    local res = safeRaycast(origin, dir, blacklist)
+    local blacklist = {LocalPlayer.Character}
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+    params.FilterDescendantsInstances = blacklist
+    local res = workspace:Raycast(origin, dir.Unit * 1000, params)
     if not res then return true end
     return res.Instance and res.Instance:IsDescendantOf(part.Parent)
 end
 
--- ===== DRAWING CREATE / REMOVE =====
 local function CreateESP(plr)
     if ESP[plr] then return end
     ESP[plr] = {
@@ -235,65 +192,48 @@ local function CreateESP(plr)
         HP = Drawing.new("Square"),
         Line = Drawing.new("Line")
     }
-    ESP[plr].Box.Thickness = 1
-    ESP[plr].Box.Color = Color3.fromRGB(0,255,0)
-    ESP[plr].Box.Filled = false
-    ESP[plr].Name.Size = 15
-    ESP[plr].Name.Center = true
-    ESP[plr].Name.Outline = true
-    ESP[plr].Name.Color = ESP[plr].Box.Color
-    ESP[plr].HPBG.Filled = true
-    ESP[plr].HPBG.Color = Color3.fromRGB(0,0,0)
-    ESP[plr].HP.Filled = true
-    ESP[plr].HP.Color = Color3.fromRGB(0,255,0)
-    ESP[plr].Line.Thickness = 1
-    ESP[plr].Line.Color = Color3.fromRGB(255,255,255)
+    local e = ESP[plr]
+    e.Box.Thickness = 1; e.Box.Color = Color3.fromRGB(0,255,0); e.Box.Filled = false
+    e.Name.Size = 14; e.Name.Center = true; e.Name.Outline = true; e.Name.Color = e.Box.Color
+    e.HPBG.Filled = true; e.HPBG.Color = Color3.fromRGB(0,0,0)
+    e.HP.Filled = true; e.HP.Color = Color3.fromRGB(0,255,0)
+    e.Line.Thickness = 1; e.Line.Color = Color3.fromRGB(255,255,255)
 end
 
 local function RemoveESP(plr)
     if not ESP[plr] then return end
-    for _, v in pairs(ESP[plr]) do
-        pcall(function() if v and v.Remove then v:Remove() end end)
-    end
+    for _, v in pairs(ESP[plr]) do v:Remove() end
     ESP[plr] = nil
 end
 
-Players.PlayerRemoving:Connect(function(plr) RemoveESP(plr) end)
+Players.PlayerRemoving:Connect(RemoveESP)
 
--- ===== BOX / TARGET LOGIC (Dilanjutkan di Part 2) =====
 local function GetBox(plr)
-    if not plr or not plr.Character then return end
+    if not (plr and plr.Character) then return end
     local char = plr.Character
     local head = char:FindFirstChild("Head")
     local hrp = char:FindFirstChild("HumanoidRootPart")
     local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if not (head and hrp and humanoid) then return end
-    if humanoid.Health <= 0 then return end
-
+    if not (head and hrp and humanoid and humanoid.Health > 0) then return end
     local screenPos, vis = Camera:WorldToViewportPoint(hrp.Position)
     if not vis then return end
-
     local distance = (Camera.CFrame.Position - hrp.Position).Magnitude
     local scale = clamp(2000 / math.max(distance, 0.1), 3, 500)
-
     local height = 6 * scale
     local width = 4 * scale
-    local topLeft = Vector2.new(screenPos.X - width/2, screenPos.Y - height/2)
+    local topLeft = Vector2.new(screenPos.X - width / 2, screenPos.Y - height / 2)
     return topLeft, Vector2.new(width, height), humanoid, head, screenPos
 end
 
 local function IsValidTarget(plr)
-    if not plr then return false end
-    if plr == LocalPlayer then return false end
+    if not plr or plr == LocalPlayer or not plr.Character then return false end
     if _G.TeamCheck and plr.Team == LocalPlayer.Team then return false end
-    if not plr.Character then return false end
     return true
 end
 
 local function GetClosestHeadInFOV()
-    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-    local bestHead = nil
-    local bestDist = _G.FOVRadius
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local bestHead, bestDist = nil, _G.FOVRadius
     for _, plr in ipairs(Players:GetPlayers()) do
         if IsValidTarget(plr) then
             local _, _, humanoid, head = GetBox(plr)
@@ -301,11 +241,9 @@ local function GetClosestHeadInFOV()
                 local headScr, vis = Camera:WorldToViewportPoint(head.Position)
                 if vis then
                     local dist = (Vector2.new(headScr.X, headScr.Y) - center).Magnitude
-                    if dist <= _G.FOVRadius and IsVisible(head) then
-                        if dist < bestDist then
-                            bestDist = dist
-                            bestHead = head
-                        end
+                    if dist <= _G.FOVRadius and IsVisible(head) and dist < bestDist then
+                        bestDist = dist
+                        bestHead = head
                     end
                 end
             end
@@ -314,11 +252,9 @@ local function GetClosestHeadInFOV()
     return bestHead
 end
 
--- ===== MAIN LOOP (ESP/AIMBOT) =====
 RunService.RenderStepped:Connect(function()
-    FOV.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    FOV.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     FOV.Radius = _G.FOVRadius
-
     local anyVisible = false
     for _, plr in ipairs(Players:GetPlayers()) do
         if IsValidTarget(plr) then
@@ -326,58 +262,41 @@ RunService.RenderStepped:Connect(function()
             if boxPos and size then
                 if not ESP[plr] then CreateESP(plr) end
                 local e = ESP[plr]
-                
                 local isEspVisible = _G.ESPEnabled
-                e.Box.Visible = isEspVisible
-                e.Name.Visible = isEspVisible
-
+                for _, obj in pairs(e) do obj.Visible = isEspVisible end
                 if isEspVisible then
                     e.Box.Position = boxPos
                     e.Box.Size = size
-                    e.Box.Color = Color3.fromRGB(0,255,0)
-                    e.Name.Position = Vector2.new(boxPos.X + size.X/2, boxPos.Y - 15)
+                    e.Name.Position = Vector2.new(boxPos.X + size.X / 2, boxPos.Y - 15)
                     e.Name.Text = plr.Name
-                    e.Name.Color = e.Box.Color
-                end
-
-                local isHpVisible = _G.ShowHPBar and isEspVisible
-                e.HP.Visible = isHpVisible
-                e.HPBG.Visible = isHpVisible
-                if isHpVisible then
+                    
                     local hpPerc = clamp(humanoid.Health / math.max(humanoid.MaxHealth, 1), 0, 1)
+                    e.HPBG.Visible = _G.ShowHPBar
                     e.HPBG.Size = Vector2.new(4, size.Y)
                     e.HPBG.Position = Vector2.new(boxPos.X - 6, boxPos.Y)
+                    e.HP.Visible = _G.ShowHPBar
                     e.HP.Size = Vector2.new(4, size.Y * hpPerc)
                     e.HP.Position = Vector2.new(boxPos.X - 6, boxPos.Y + size.Y * (1 - hpPerc))
                     e.HP.Color = (hpPerc <= 0.3 and Color3.fromRGB(255,0,0)) or (hpPerc <= 0.6 and Color3.fromRGB(255,255,0)) or Color3.fromRGB(0,255,0)
-                end
 
-                local isLineVisible = _G.ShowLine and isEspVisible
-                e.Line.Visible = isLineVisible
-                if isLineVisible then
-                    e.Line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+                    e.Line.Visible = _G.ShowLine
+                    e.Line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
                     e.Line.To = Vector2.new(screenPos.X, screenPos.Y)
-                end
 
-                local headScr, headVis = Camera:WorldToViewportPoint(head.Position)
-                if headVis and (Vector2.new(headScr.X, headScr.Y) - FOV.Position).Magnitude <= _G.FOVRadius and IsVisible(head) then
-                    anyVisible = true
-                end
-            else
-                if ESP[plr] then
-                    for _, obj in pairs(ESP[plr]) do
-                        if obj and obj.Visible ~= nil then obj.Visible = false end
+                    local headScr, headVis = Camera:WorldToViewportPoint(head.Position)
+                    if headVis and (Vector2.new(headScr.X, headScr.Y) - FOV.Position).Magnitude <= _G.FOVRadius and IsVisible(head) then
+                        anyVisible = true
                     end
                 end
+            else
+                if ESP[plr] then for _, obj in pairs(ESP[plr]) do obj.Visible = false end end
             end
         else
             RemoveESP(plr)
         end
     end
-
-    FOV.Color = anyVisible and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,0,0)
+    FOV.Color = anyVisible and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
     FOV.Visible = _G.AimbotEnabled
-
     if _G.AimbotEnabled then
         local targetHead = GetClosestHeadInFOV()
         if targetHead and targetHead.Position then
@@ -386,260 +305,164 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ===== DEKLARASI FUNGSI UI UTAMA (Akan didefinisikan di Part 2) =====
-local createSusanoGui 
-
 -- ============================================================
--- =============== SCRIPT START EXECUTION PART 1 =====================
+-- MAIN UI (MYTORIA MENU)
 -- ============================================================
+local createMytoriaGui
 
-local loginGui, textBox, submitBtn, statusLabel = createLoginGui()
-
-submitBtn.MouseButton1Click:Connect(function()
-    local inputKey = textBox.Text
-    local ok, msg = validateKey(inputKey, statusLabel)
-    
-    if ok then
-        task.delay(1, function() 
-            loginGui:Destroy()
-            if createSusanoGui then
-                pcall(createSusanoGui)
-            else
-                print("[INFO] Loading Part 2...")
-            end
-            print("[LOGIN SUCCESS] Key expires in seconds: "..keyExpirySeconds)
-        end)
-    end
-end)
--- Gunakan variabel global dari Part 1 (LocalPlayer, TweenService, BLUE_ACCENT, BG_DARK, BG_HEADER, TEXT_COLOR, COLOR_EXPIRED, keyExpirySeconds, secondsToDHMS, _G)
-
--- ===== SUSANO UI (MAIN PANEL) - Definisi Lengkap =====
-createSusanoGui = function()
-    local parent = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
-    if parent:FindFirstChild("SUSANO_Menu") then parent.SUSANO_Menu:Destroy() end
+createMytoriaGui = function()
+    local parent = game:GetService("CoreGui")
+    if parent:FindFirstChild("MYTORIA_Menu") then parent.MYTORIA_Menu:Destroy() end
 
     local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "SUSANO_Menu"
+    screenGui.Name = "MYTORIA_Menu"
     screenGui.ResetOnSpawn = false
     screenGui.Parent = parent
 
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 180, 0, 0)
+    mainFrame.Size = UDim2.new(0, 200, 0, 30) 
     mainFrame.Position = UDim2.new(0.01, 0, 0.1, 0)
     mainFrame.BackgroundColor3 = BG_DARK
     mainFrame.BackgroundTransparency = 0.2
     mainFrame.BorderSizePixel = 1
-    mainFrame.BorderColor3 = BLUE_ACCENT
+    mainFrame.BorderColor3 = ACCENT_COLOR
     mainFrame.Parent = screenGui
     mainFrame.ClipsDescendants = true
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 5)
 
     local mainListLayout = Instance.new("UIListLayout", mainFrame)
-    mainListLayout.Padding = UDim.new(0, 0)
+    mainListLayout.Padding = UDim.new(0, 5)
     mainListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-    local function adjustMainFrameHeight()
-        pcall(function()
-            mainFrame.Size = UDim2.new(0, 180, 0, mainListLayout.AbsoluteContentSize.Y)
-        end)
-    end
+    local header = Instance.new("TextButton")
+    header.Name = "Header"
+    header.Size = UDim2.new(1, 0, 0, 30)
+    header.BackgroundColor3 = BG_HEADER
+    header.Text = "MYTORIA"
+    header.Font = Enum.Font.SourceSansBold
+    header.TextSize = 18
+    header.TextColor3 = ACCENT_COLOR
+    header.LayoutOrder = 1
+    header.Parent = mainFrame
+    header.AutoButtonColor = false
+    header.Active = true
+    header.Draggable = true -- Allows dragging the entire frame
 
-    -- Title Bar
-    local titleBar = Instance.new("Frame", mainFrame)
-    titleBar.Size = UDim2.new(1, 0, 0, 25)
-    titleBar.BackgroundColor3 = BG_HEADER
-    titleBar.LayoutOrder = 1
-    titleBar.Active = true
-    titleBar.Draggable = true
+    local contentFrame = Instance.new("Frame", mainFrame)
+    contentFrame.Size = UDim2.new(1, 0, 0, 150)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.LayoutOrder = 2
+    contentFrame.ClipsDescendants = true
+    contentFrame.Visible = true
 
-    local titleLabel = Instance.new("TextLabel", titleBar)
-    titleLabel.Size = UDim2.new(1,0,1,0)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "PLAYCHEATZ" -- Disesuaikan agar mirip gambar
-    titleLabel.Font = Enum.Font.SourceSansBold
-    titleLabel.TextSize = 16
-    titleLabel.TextColor3 = BLUE_ACCENT
+    local contentList = Instance.new("UIListLayout", contentFrame)
+    contentList.Padding = UDim.new(0, 2)
     
-    -- Info Container
-    local infoContainer = Instance.new("Frame", mainFrame)
-    infoContainer.Size = UDim2.new(1, 0, 0, 60)
-    infoContainer.BackgroundTransparency = 1
-    infoContainer.LayoutOrder = 2
-    local infoList = Instance.new("UIListLayout", infoContainer)
+    local isContentVisible = true
+    local contentHeight = 0
 
-    local function createInfoRow(parentFrame, name, value, color)
-        local row = Instance.new("TextLabel", parentFrame)
-        row.Size = UDim2.new(1, 0, 0, 15); row.BackgroundTransparency = 1; row.Font = Enum.Font.Code
-        row.TextSize = 12; row.TextColor3 = color or TEXT_COLOR
-        row.TextXAlignment = Enum.TextXAlignment.Left; 
-        row.Text = string.format("%-10s %s", name .. ":", value) -- Format rata kiri agar rapi
+    local function createInfoRow(name, value, color)
+        local row = Instance.new("TextLabel", contentFrame)
+        row.Size = UDim2.new(1, 0, 0, 15)
+        row.BackgroundTransparency = 1
+        row.Font = Enum.Font.Code
+        row.TextSize = 12
+        row.TextColor3 = color or TEXT_COLOR
+        row.TextXAlignment = Enum.TextXAlignment.Left
+        local formattedName = string.format("%-8s:", name)
+        row.Text = "  " .. formattedName .. " " .. value
         return row
     end
-    
-    local dateLabel = createInfoRow(infoContainer, "Date", os.date("%d/%m/%Y"), TEXT_COLOR) -- Ganti warna
-    local timeLabel = createInfoRow(infoContainer, "Time", os.date("%H:%M:%S"), TEXT_COLOR) -- Ganti warna
-    local onlineLabel = createInfoRow(infoContainer, "Online", "00:00:00", TEXT_COLOR)
-    local expiredLabel = createInfoRow(infoContainer, "Expired", secondsToDHMS(keyExpirySeconds), COLOR_EXPIRED)
 
+    local dateLabel = createInfoRow("Date", os.date("%d/%m/%Y"), TEXT_COLOR)
+    local timeLabel = createInfoRow("Time", os.date("%H:%M:%S"), TEXT_COLOR)
+    local onlineLabel = createInfoRow("Online", "00:00:00", TEXT_COLOR)
+    local expiredLabel = createInfoRow("Expired", secondsToDHMS(keyExpirySeconds), COLOR_EXPIRED)
+    
     local startTime = tick()
     local currentExpiry = keyExpirySeconds
-
-    -- Waktu dan Update Status
     RunService.Heartbeat:Connect(function()
-        local now = os.date("*t")
-        dateLabel.Text = string.format("%-10s %s", "Date:", os.date("%d/%m/%Y"))
-        timeLabel.Text = string.format("%-10s %s", "Time:", os.date("%H:%M:%S"))
-        onlineLabel.Text = string.format("%-10s %s", "Online:", os.date("!%H:%M:%S", tick() - startTime))
-        
-        currentExpiry = math.max(0, currentExpiry - (tick() - (tick() - RunService.Heartbeat:Wait()))) -- Kurangi waktu yang berlalu
-        expiredLabel.Text = string.format("%-10s %s", "Expired:", secondsToDHMS(currentExpiry))
-        
-        if currentExpiry <= 0 then
-            expiredLabel.TextColor3 = Color3.fromRGB(255, 0, 0) -- Merah jika benar-benar habis
-        end
+        dateLabel.Text = "  " .. string.format("%-8s:", "Date") .. " " .. os.date("%d/%m/%Y")
+        timeLabel.Text = "  " .. string.format("%-8s:", "Time") .. " " .. os.date("%H:%M:%S")
+        onlineLabel.Text = "  " .. string.format("%-8s:", "Online") .. " " .. os.date("!%H:%M:%S", tick() - startTime)
+        currentExpiry = math.max(0, keyExpirySeconds - (tick() - startTime))
+        expiredLabel.Text = "  " .. string.format("%-8s:", "Expired") .. " " .. secondsToDHMS(currentExpiry)
+        if currentExpiry <= 0 then expiredLabel.TextColor3 = COLOR_ERROR end
     end)
     
-    -- Feature Row Function (sama seperti sebelumnya)
-    local function createFeatureRow(parentFrame, name, configKey, valueType, valueDefault)
-        if not configKey then return end
-        
-        local rowFrame = Instance.new("Frame", parentFrame)
-        rowFrame.Size = UDim2.new(1, 0, 0, 20)
-        rowFrame.BackgroundColor3 = Color3.fromRGB(15, 25, 40)
-        rowFrame.BackgroundTransparency = 0.5
-
-        local lineDecorator = Instance.new("Frame", rowFrame)
-        lineDecorator.Size = UDim2.new(0, 2, 0.8, 0); lineDecorator.Position = UDim2.new(0, 5, 0.1, 0)
-        lineDecorator.BackgroundColor3 = BLUE_ACCENT; lineDecorator.BorderSizePixel = 0
+    Instance.new("Frame", contentFrame).Size = UDim2.new(1, -10, 0, 1)
+        .BackgroundColor3 = BG_HEADER
+        .Position = UDim2.new(0.5, -((200-10)/2), 0, 0)
+    
+    local function createFeatureRow(name, configKey)
+        local rowFrame = Instance.new("Frame", contentFrame)
+        rowFrame.Size = UDim2.new(1, 0, 0, 22)
+        rowFrame.BackgroundTransparency = 1
 
         local nameLabel = Instance.new("TextLabel", rowFrame)
-        nameLabel.Size = UDim2.new(0.7, -10, 1, 0); nameLabel.Position = UDim2.new(0, 10, 0, 0)
-        nameLabel.BackgroundTransparency = 1; nameLabel.Text = name; nameLabel.Font = Enum.Font.Code
-        nameLabel.TextSize = 12; nameLabel.TextColor3 = TEXT_COLOR
+        nameLabel.Size = UDim2.new(0.7, 0, 1, 0)
+        nameLabel.Position = UDim2.new(0, 8, 0, 0)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = name
+        nameLabel.Font = Enum.Font.Code
+        nameLabel.TextSize = 13
+        nameLabel.TextColor3 = TEXT_COLOR
         nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 
         local statusButton = Instance.new("TextButton", rowFrame)
-        statusButton.Size = UDim2.new(0, 40, 0, 16); statusButton.Position = UDim2.new(1, -45, 0, 2)
-        statusButton.Font = Enum.Font.Code; statusButton.TextSize = 12
+        statusButton.Size = UDim2.new(0.3, -13, 1, -6)
+        statusButton.Position = UDim2.new(1, -50, 0.5, -((22-6)/2))
+        statusButton.Font = Enum.Font.Code
+        statusButton.TextSize = 12
         statusButton.TextColor3 = TEXT_COLOR
-        statusButton.AutoButtonColor = false; statusButton.BorderSizePixel = 0
+        statusButton.BorderSizePixel = 0
+        Instance.new("UICorner", statusButton).CornerRadius = UDim.new(0, 3)
         
         local function updateStatus()
-            if valueType == "boolean" then
-                local isEnabled = _G[configKey]
-                statusButton.Text = isEnabled and "ON" or "OFF"
-                statusButton.BackgroundColor3 = isEnabled and BLUE_ACCENT or Color3.fromRGB(40, 40, 40)
-            else
-                statusButton.Text = tostring(_G[configKey])
-                statusButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-            end
+            local isEnabled = _G[configKey]
+            statusButton.Text = isEnabled and "ON" or "OFF"
+            statusButton.BackgroundColor3 = isEnabled and ACCENT_COLOR or BG_HEADER
         end
         updateStatus()
         
-        local clickableArea = Instance.new("TextButton", rowFrame)
-        clickableArea.Size = UDim2.new(1,0,1,0); clickableArea.BackgroundTransparency = 1
-        clickableArea.Text = ""; clickableArea.AutoButtonColor = false
-        clickableArea.MouseButton1Click:Connect(function()
-            if valueType == "boolean" then
-                _G[configKey] = not _G[configKey]
-                updateStatus()
-            end
-            -- Untuk tipe lain (misal: Radius), dibutuhkan fungsi input tambahan,
-            -- yang tidak dapat dibuat dengan tombol klik sederhana.
+        statusButton.MouseButton1Click:Connect(function()
+            _G[configKey] = not _G[configKey]
+            updateStatus()
         end)
-        
-        return rowFrame
-    end
-
-    -- Category Collapsible Function (sama seperti sebelumnya)
-    local function createCollapsibleCategory(name, layoutOrder, features, startOpened)
-        
-        local activeFeatures = {}
-        for _, feature in ipairs(features) do
-            if feature[2] ~= nil then
-                table.insert(activeFeatures, feature)
-            end
-        end
-
-        if #activeFeatures == 0 then return end
-        
-        local categoryFrame = Instance.new("Frame", mainFrame)
-        categoryFrame.BackgroundTransparency = 1
-        categoryFrame.Size = UDim2.new(1,0,0,20)
-        categoryFrame.LayoutOrder = layoutOrder
-        local listLayout = Instance.new("UIListLayout", categoryFrame)
-        listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-        -- 1. HEADER (LayoutOrder 1)
-        local header = Instance.new("TextButton", categoryFrame)
-        header.Name = "Header"; header.Size = UDim2.new(1,0,0,20); header.LayoutOrder = 1
-        header.BackgroundColor3 = BG_HEADER; header.Text = name -- Header tidak lagi berwarna biru, agar mirip gambar
-        header.Font = Enum.Font.SourceSansSemibold; header.TextSize = 14
-        header.TextColor3 = TEXT_COLOR; header.AutoButtonColor = false
-
-        -- 2. CONTENT CONTAINER (LayoutOrder 2)
-        local content = Instance.new("Frame", categoryFrame)
-        content.Name = "Content"; content.Size = UDim2.new(1,0,0,0); content.LayoutOrder = 2
-        content.BackgroundTransparency = 1; content.ClipsDescendants = true
-        content.Visible = startOpened or false
-        local contentList = Instance.new("UIListLayout", content)
-        
-        for _, feature in ipairs(activeFeatures) do
-            createFeatureRow(content, feature[1], feature[2], feature[3])
-        end
-        
-        local totalContentHeight = #activeFeatures * 20
-        local targetSize = UDim2.new(1,0,0, 20 + totalContentHeight)
-        
-        if content.Visible then
-            categoryFrame.Size = targetSize
-            content.Size = UDim2.new(1,0,0, totalContentHeight)
-        end
-
-        header.MouseButton1Click:Connect(function()
-            content.Visible = not content.Visible
-            local targetCategorySize = content.Visible and targetSize or UDim2.new(1,0,0,20)
-            local targetContentHeight = content.Visible and UDim2.new(1,0,0, totalContentHeight) or UDim2.new(1,0,0,0)
-            
-            local tweenCategory = TweenService:Create(categoryFrame, TweenInfo.new(0.2), {Size = targetCategorySize})
-            local tweenContent = TweenService:Create(content, TweenInfo.new(0.2), {Size = targetContentHeight})
-            
-            tweenContent:Play()
-            tweenCategory:Play()
-            tweenCategory.Completed:Connect(adjustMainFrameHeight)
-        end)
-        
-        return categoryFrame
     end
     
-    -- ===== DAFTAR FITUR YANG BERFUNGSI (Disesuaikan agar mirip gambar) =====
-    
-    local espFeatures = {
-        {"Show Line", "ShowLine", "boolean"},
-        {"Show HP", "ShowHPBar", "boolean"},
-        {"FOV Radius", "FOVRadius", "number"},
-        {"Team Check", "TeamCheck", "boolean"},
-    }
-    
-    local aimFeatures = {
-        {"Aim Bot", "AimbotEnabled", "boolean"},
-    }
-    
-    local weaponFeatures = {} -- Kosong
+    createFeatureRow("ESP", "ESPEnabled")
+    createFeatureRow("Aimbot", "AimbotEnabled")
+    createFeatureRow("Team Check", "TeamCheck")
+    createFeatureRow("Show Line", "ShowLine")
+    createFeatureRow("Show HP Bar", "ShowHPBar")
 
-    local playerFeatures = {} -- Kosong
+    contentHeight = contentList.AbsoluteContentSize.Y
+    contentFrame.Size = UDim2.new(1, 0, 0, contentHeight)
+    mainFrame.Size = UDim2.new(0, 200, 0, header.AbsoluteSize.Y + contentHeight + mainListLayout.Padding.Offset)
 
-    -- Membuat Kategori di UI
-    createCollapsibleCategory("ESP", 3, espFeatures, true)
-    createCollapsibleCategory("AIM", 4, aimFeatures)
-    createCollapsibleCategory("WEAPON", 5, weaponFeatures)
-    createCollapsibleCategory("PLAYER", 6, playerFeatures)
-
-    task.wait(0.2)
-    adjustMainFrameHeight()
+    header.MouseButton1Click:Connect(function()
+        isContentVisible = not isContentVisible
+        local goalFrameSize = isContentVisible and UDim2.new(0, 200, 0, header.AbsoluteSize.Y + contentHeight + mainListLayout.Padding.Offset) or UDim2.new(0, 200, 0, 30)
+        local goalContentSize = isContentVisible and UDim2.new(1, 0, 0, contentHeight) or UDim2.new(1, 0, 0, 0)
+        
+        TweenService:Create(mainFrame, TweenInfo.new(0.2), {Size = goalFrameSize}):Play()
+        contentFrame.Visible = true
+        TweenService:Create(contentFrame, TweenInfo.new(0.2), {Size = goalContentSize}):Play()
+    end)
 end
 
--- Panggil fungsi yang dideklarasikan di Part 1 untuk memastikan ia tahu di mana menemukan createSusanoGui
-if submitBtn and submitBtn.MouseButton1Click then
-    print("[INFO] UI Function (createSusanoGui) is now defined.")
-end
+-- ============================================================
+-- SCRIPT EXECUTION START
+-- ============================================================
+
+local loginGui, textBox, submitBtn, statusLabel = createLoginGui()
+
+submitBtn.MouseButton1Click:Connect(function()
+    if validateKey(textBox.Text, statusLabel) then
+        task.delay(1, function() 
+            loginGui:Destroy()
+            createMytoriaGui()
+        end)
+    end
+end)
