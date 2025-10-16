@@ -1,5 +1,9 @@
 -- ============================================================
--- SUSANO SCRIPT V3 - PART 1/2: LOGIN & LOGIC
+-- SUSANO SCRIPT V3 - PART 2/2: UI MENU UTAMA LENGKAP (REV. TIME)
+-- CATATAN: Part 1 harus dimuat terlebih dahulu!
+-- ============================================================
+-- ============================================================
+-- SUSANO SCRIPT V3 - PART 1/2: LOGIN & LOGIC (REV. TIME)
 -- ============================================================
 
 -- ====== CONFIG ======
@@ -21,7 +25,7 @@ local LocalPlayer = Players.LocalPlayer
 
 -- ====== FIREBASE CONFIG & DATA STORAGE ======
 local FIREBASE_URL = "https://mod-mytoria-default-rtdb.asia-southeast1.firebasedatabase.app/keys.json"
-local keyExpiryDate = "N/A"
+local keyExpirySeconds = 0 -- Sisa waktu kadaluarsa dalam detik
 
 -- ====== UI COLOR CONSTANTS ======
 local BLUE_ACCENT = Color3.fromRGB(0, 110, 255)
@@ -31,6 +35,26 @@ local TEXT_COLOR = Color3.fromRGB(255, 255, 255)
 local COLOR_SUCCESS = Color3.fromRGB(0, 255, 100)
 local COLOR_EXPIRED = Color3.fromRGB(255, 165, 0)
 local COLOR_ERROR = Color3.fromRGB(255, 50, 50)
+
+-- ====== UTILITY TIME CONVERSION ======
+-- Mengonversi total detik ke format Hari:Jam:Menit:Detik (D:H:M:S)
+local function secondsToDHMS(totalSeconds)
+    if totalSeconds <= 0 then return "00D:00H:00M:00S" end
+    local seconds = math.floor(totalSeconds)
+    
+    local days = math.floor(seconds / 86400)
+    seconds = seconds % 86400
+    
+    local hours = math.floor(seconds / 3600)
+    seconds = seconds % 3600
+    
+    local minutes = math.floor(seconds / 60)
+    seconds = seconds % 60
+    
+    local function format(n) return string.format("%02i", n) end
+    
+    return format(days) .. "D:" .. format(hours) .. "H:" .. format(minutes) .. "M:" .. format(seconds) .. "S"
+end
 
 -- ====== GUI LOGIN (REVISED) ======
 local function createLoginGui()
@@ -118,15 +142,23 @@ local function validateKey(inputKey, statusLabel)
             local expiry = entry.expiry or "2099-12-31" 
 
             local year, month, day = expiry:match("(%d%d%d%d)-(%d%d)-(%d%d)")
+            local expiryTime = 0
+            
             if year and month and day then
-                local expiryTime = os.time({year=tonumber(year), month=tonumber(month), day=tonumber(day), hour=23, min=59, sec=59})
+                -- Atur waktu kadaluarsa ke akhir hari yang ditentukan (23:59:59)
+                expiryTime = os.time({year=tonumber(year), month=tonumber(month), day=tonumber(day), hour=23, min=59, sec=59})
+            else
+                 -- Key default untuk menghindari error jika format salah/tidak ada
+                expiryTime = os.time({year=2099, month=12, day=31, hour=23, min=59, sec=59}) 
+            end
+            
+            local timeDifference = expiryTime - currentTime
+            keyExpirySeconds = timeDifference
 
-                if currentTime > expiryTime then
-                    keyExpiryDate = os.date("%d/%m/%Y", expiryTime)
-                    statusLabel.Text = "Key Expired"
-                    statusLabel.TextColor3 = COLOR_EXPIRED
-                    return false, "Key Expired"
-                end
+            if timeDifference <= 0 then
+                statusLabel.Text = "Key Expired"
+                statusLabel.TextColor3 = COLOR_EXPIRED
+                return false, "Key Expired"
             end
             
             if status ~= "active" then
@@ -135,7 +167,6 @@ local function validateKey(inputKey, statusLabel)
                 return false, "Key Invalid/Inactive"
             end
 
-            keyExpiryDate = os.date("%d/%m/%Y", os.time({year=tonumber(year), month=tonumber(month), day=tonumber(day)}))
             statusLabel.Text = "Login Success/Valid"
             statusLabel.TextColor3 = COLOR_SUCCESS
             return true, "Login Success/Valid"
@@ -168,7 +199,7 @@ FOV.Color = Color3.fromRGB(255,0,0)
 FOV.Visible = true
 FOV.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
 
--- ===== UTILS =====
+-- ===== UTILS (lanjutan) =====
 local function clamp(v,a,b) return math.max(a, math.min(b, v)) end
 
 local function safeRaycast(origin, dir, blacklist)
@@ -371,22 +402,16 @@ submitBtn.MouseButton1Click:Connect(function()
     if ok then
         task.delay(1, function() 
             loginGui:Destroy()
-            -- createSusanoGui harus didefinisikan di Part 2 agar ini berhasil.
             if createSusanoGui then
                 pcall(createSusanoGui)
             else
                 print("[INFO] Loading Part 2...")
             end
-            print("[LOGIN SUCCESS] Key expires: "..keyExpiryDate)
+            print("[LOGIN SUCCESS] Key expires in seconds: "..keyExpirySeconds)
         end)
     end
 end)
--- ============================================================
--- SUSANO SCRIPT V3 - PART 2/2: UI MENU UTAMA LENGKAP
--- CATATAN: Part 1 harus dimuat terlebih dahulu!
--- ============================================================
-
--- Gunakan variabel global dari Part 1 (LocalPlayer, TweenService, BLUE_ACCENT, BG_DARK, BG_HEADER, TEXT_COLOR, COLOR_EXPIRED, keyExpiryDate, _G)
+-- Gunakan variabel global dari Part 1 (LocalPlayer, TweenService, BLUE_ACCENT, BG_DARK, BG_HEADER, TEXT_COLOR, COLOR_EXPIRED, keyExpirySeconds, secondsToDHMS, _G)
 
 -- ===== SUSANO UI (MAIN PANEL) - Definisi Lengkap =====
 createSusanoGui = function()
@@ -430,7 +455,7 @@ createSusanoGui = function()
     local titleLabel = Instance.new("TextLabel", titleBar)
     titleLabel.Size = UDim2.new(1,0,1,0)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "SUSANO"
+    titleLabel.Text = "PLAYCHEATZ" -- Disesuaikan agar mirip gambar
     titleLabel.Font = Enum.Font.SourceSansBold
     titleLabel.TextSize = 16
     titleLabel.TextColor3 = BLUE_ACCENT
@@ -446,23 +471,36 @@ createSusanoGui = function()
         local row = Instance.new("TextLabel", parentFrame)
         row.Size = UDim2.new(1, 0, 0, 15); row.BackgroundTransparency = 1; row.Font = Enum.Font.Code
         row.TextSize = 12; row.TextColor3 = color or TEXT_COLOR
-        row.TextXAlignment = Enum.TextXAlignment.Left; row.Text = "  "..name..": "..value
+        row.TextXAlignment = Enum.TextXAlignment.Left; 
+        row.Text = string.format("%-10s %s", name .. ":", value) -- Format rata kiri agar rapi
         return row
     end
     
-    createInfoRow(infoContainer, "Date", os.date("%d/%m/%Y"), BLUE_ACCENT)
-    local timeLabel = createInfoRow(infoContainer, "Time", os.date("%H:%M:%S"), BLUE_ACCENT)
-    local onlineLabel = createInfoRow(infoContainer, "Online", "00:00:00", BLUE_ACCENT)
-    createInfoRow(infoContainer, "Expired", keyExpiryDate, COLOR_EXPIRED)
+    local dateLabel = createInfoRow(infoContainer, "Date", os.date("%d/%m/%Y"), TEXT_COLOR) -- Ganti warna
+    local timeLabel = createInfoRow(infoContainer, "Time", os.date("%H:%M:%S"), TEXT_COLOR) -- Ganti warna
+    local onlineLabel = createInfoRow(infoContainer, "Online", "00:00:00", TEXT_COLOR)
+    local expiredLabel = createInfoRow(infoContainer, "Expired", secondsToDHMS(keyExpirySeconds), COLOR_EXPIRED)
 
     local startTime = tick()
+    local currentExpiry = keyExpirySeconds
+
+    -- Waktu dan Update Status
     RunService.Heartbeat:Connect(function()
-        timeLabel.Text = "  Time: "..os.date("%H:%M:%S")
-        onlineLabel.Text = "  Online: "..os.date("!%H:%M:%S", tick() - startTime)
+        local now = os.date("*t")
+        dateLabel.Text = string.format("%-10s %s", "Date:", os.date("%d/%m/%Y"))
+        timeLabel.Text = string.format("%-10s %s", "Time:", os.date("%H:%M:%S"))
+        onlineLabel.Text = string.format("%-10s %s", "Online:", os.date("!%H:%M:%S", tick() - startTime))
+        
+        currentExpiry = math.max(0, currentExpiry - (tick() - (tick() - RunService.Heartbeat:Wait()))) -- Kurangi waktu yang berlalu
+        expiredLabel.Text = string.format("%-10s %s", "Expired:", secondsToDHMS(currentExpiry))
+        
+        if currentExpiry <= 0 then
+            expiredLabel.TextColor3 = Color3.fromRGB(255, 0, 0) -- Merah jika benar-benar habis
+        end
     end)
     
-    -- Feature Row Function
-    local function createFeatureRow(parentFrame, name, configKey, valueType)
+    -- Feature Row Function (sama seperti sebelumnya)
+    local function createFeatureRow(parentFrame, name, configKey, valueType, valueDefault)
         if not configKey then return end
         
         local rowFrame = Instance.new("Frame", parentFrame)
@@ -491,6 +529,9 @@ createSusanoGui = function()
                 local isEnabled = _G[configKey]
                 statusButton.Text = isEnabled and "ON" or "OFF"
                 statusButton.BackgroundColor3 = isEnabled and BLUE_ACCENT or Color3.fromRGB(40, 40, 40)
+            else
+                statusButton.Text = tostring(_G[configKey])
+                statusButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
             end
         end
         updateStatus()
@@ -503,12 +544,14 @@ createSusanoGui = function()
                 _G[configKey] = not _G[configKey]
                 updateStatus()
             end
+            -- Untuk tipe lain (misal: Radius), dibutuhkan fungsi input tambahan,
+            -- yang tidak dapat dibuat dengan tombol klik sederhana.
         end)
         
         return rowFrame
     end
 
-    -- Category Collapsible Function (Show/Hide logic)
+    -- Category Collapsible Function (sama seperti sebelumnya)
     local function createCollapsibleCategory(name, layoutOrder, features, startOpened)
         
         local activeFeatures = {}
@@ -530,7 +573,7 @@ createSusanoGui = function()
         -- 1. HEADER (LayoutOrder 1)
         local header = Instance.new("TextButton", categoryFrame)
         header.Name = "Header"; header.Size = UDim2.new(1,0,0,20); header.LayoutOrder = 1
-        header.BackgroundColor3 = BLUE_ACCENT; header.Text = name
+        header.BackgroundColor3 = BG_HEADER; header.Text = name -- Header tidak lagi berwarna biru, agar mirip gambar
         header.Font = Enum.Font.SourceSansSemibold; header.TextSize = 14
         header.TextColor3 = TEXT_COLOR; header.AutoButtonColor = false
 
@@ -569,22 +612,22 @@ createSusanoGui = function()
         return categoryFrame
     end
     
-    -- ===== DAFTAR FITUR YANG BERFUNGSI =====
+    -- ===== DAFTAR FITUR YANG BERFUNGSI (Disesuaikan agar mirip gambar) =====
     
     local espFeatures = {
-        {"Enable ESP", "ESPEnabled", "boolean"},
-        {"Team Check", "TeamCheck", "boolean"},
         {"Show Line", "ShowLine", "boolean"},
-        {"Show HP", "ShowHPBar", "boolean"}
+        {"Show HP", "ShowHPBar", "boolean"},
+        {"FOV Radius", "FOVRadius", "number"},
+        {"Team Check", "TeamCheck", "boolean"},
     }
     
     local aimFeatures = {
         {"Aim Bot", "AimbotEnabled", "boolean"},
     }
     
-    local weaponFeatures = {}
-    
-    local playerFeatures = {}
+    local weaponFeatures = {} -- Kosong
+
+    local playerFeatures = {} -- Kosong
 
     -- Membuat Kategori di UI
     createCollapsibleCategory("ESP", 3, espFeatures, true)
@@ -598,10 +641,5 @@ end
 
 -- Panggil fungsi yang dideklarasikan di Part 1 untuk memastikan ia tahu di mana menemukan createSusanoGui
 if submitBtn and submitBtn.MouseButton1Click then
-    -- Ini adalah hack untuk memastikan fungsi update di Part 1 dapat dipanggil.
-    -- Di lingkungan Roblox, jika Part 1 di-loadstring, variabel lokalnya akan hilang.
-    -- Jika Anda menggunakan Part 1 dan Part 2 secara berurutan dalam satu eksekusi,
-    -- variabel 'createSusanoGui' yang dideklarasikan di Part 1 akan terdefinisi di sini.
-    -- Di lingkungan executor modern, ini biasanya akan berfungsi.
     print("[INFO] UI Function (createSusanoGui) is now defined.")
 end
